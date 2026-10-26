@@ -6,7 +6,6 @@ export default function HomePage() {
         <p className="text-gray-600 mt-2 mb-8">
           Simamia mali, wapangaji, kodi na matengenezo.
         </p>
-
         <div className="space-y-3">
           <a href="/login" className="block bg-blue-600 text-white py-3 rounded-lg font-medium">
             Ingia kama mwenye nyumba
@@ -21,7 +20,7 @@ export default function HomePage() {
             Sajili akaunti ya mpangaji
           </a>
           <a href="/listings" className="block bg-gray-800 text-white py-3 rounded-lg font-medium">
-          Tazama vyumba vilivyo wazi
+            Tazama vyumba vilivyo wazi
           </a>
         </div>
       </div>
