@@ -10,6 +10,7 @@ type Listing = {
   property_name: string
   property_type: string
   location: string | null
+  photo_url: string | null
 }
 
 function InquiryForm({ unitId }: { unitId: string }) {
@@ -21,7 +22,6 @@ function InquiryForm({ unitId }: { unitId: string }) {
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault()
-    setNote('')
     const { error: rpcError } = await supabase.rpc('send_inquiry', {
       p_unit_id: unitId,
       p_name: name,
@@ -49,11 +49,11 @@ function InquiryForm({ unitId }: { unitId: string }) {
   return (
     <form onSubmit={send} className="mt-3 space-y-2">
       <input required placeholder="Jina lako" value={name} onChange={(e) => setName(e.target.value)}
-        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+        className="w-full border rounded px-2 py-1.5 text-sm text-gray-900" />
       <input required placeholder="Simu yako" value={phone} onChange={(e) => setPhone(e.target.value)}
-        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+        className="w-full border rounded px-2 py-1.5 text-sm text-gray-900" />
       <input placeholder="Ujumbe (si lazima)" value={message} onChange={(e) => setMessage(e.target.value)}
-        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+        className="w-full border rounded px-2 py-1.5 text-sm text-gray-900" />
       <button className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded">Tuma</button>
       {note && <p className="text-sm text-gray-700">{note}</p>}
     </form>
@@ -64,11 +64,22 @@ export default function ListingsPage() {
   const [rows, setRows] = useState<Listing[]>([])
   const [query, setQuery] = useState('')
   const [type, setType] = useState('zote')
+  const [isOwner, setIsOwner] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        setIsOwner(profile?.role !== 'tenant')
+      }
+
       const { data, error: rpcError } = await supabase.rpc('public_listings')
       if (rpcError) setError(rpcError.message)
       setRows(data || [])
@@ -79,30 +90,25 @@ export default function ListingsPage() {
 
   const filtered = rows.filter((r) => {
     const text = `${r.property_name} ${r.location || ''} ${r.unit_number}`.toLowerCase()
-    const matchesQuery = text.includes(query.toLowerCase().trim())
-    const matchesType = type === 'zote' || r.property_type === type
-    return matchesQuery && matchesType
+    return text.includes(query.toLowerCase().trim()) && (type === 'zote' || r.property_type === type)
   })
 
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-3xl mx-auto px-4 py-10">
-        <a href="/" className="text-sm text-blue-600">← Mwanzo</a>
+        <a href={isOwner ? '/dashboard' : '/'} className="text-sm text-blue-600">
+          ← {isOwner ? 'Dashboard' : 'Mwanzo'}
+        </a>
         <h1 className="text-2xl font-bold text-gray-900 mt-4">Vyumba vilivyo wazi</h1>
-        <p className="text-gray-600 mb-6">Orodha ya umma. Huna haja ya kuingia.</p>
+        <p className="text-gray-600 mb-6">
+          {isOwner ? 'Unaangalia soko. Huwezi kutuma nia kwenye akaunti ya mwenye nyumba.' : 'Orodha ya umma. Huna haja ya kuingia.'}
+        </p>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tafuta eneo au jina, mfano Sinza"
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
-          />
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
-          >
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tafuta eneo au jina"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900" />
+          <select value={type} onChange={(e) => setType(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900">
             <option value="zote">Aina zote</option>
             <option value="nyumba">Nyumba</option>
             <option value="chumba">Chumba</option>
@@ -113,13 +119,18 @@ export default function ListingsPage() {
 
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
         {loading && <p className="text-gray-600">Inapakia...</p>}
-        {!loading && filtered.length === 0 && (
-          <p className="text-gray-600">Hakuna chumba kinachoendana na utafutaji.</p>
-        )}
+        {!loading && filtered.length === 0 && <p className="text-gray-600">Hakuna chumba kinachoendana na utafutaji.</p>}
 
         <div className="space-y-3">
           {filtered.map((r) => (
             <div key={r.unit_id} className="bg-white p-4 rounded-xl shadow">
+              {r.photo_url ? (
+                <img src={r.photo_url} alt={r.property_name} className="h-48 w-full object-cover rounded-lg mb-3" />
+              ) : (
+                <div className="h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center text-sm text-gray-500">
+                  Hakuna picha bado
+                </div>
+              )}
               <p className="font-semibold text-gray-900">{r.property_name}</p>
               <p className="text-sm text-gray-600">
                 {r.property_type} · Chumba {r.unit_number} · {r.location || '—'}
@@ -127,7 +138,10 @@ export default function ListingsPage() {
               <p className="text-lg font-bold text-gray-900 mt-1">
                 TZS {Number(r.rent_amount).toLocaleString()} / mwezi
               </p>
-              <InquiryForm unitId={r.unit_id} />
+              {!isOwner && r.photo_url && <InquiryForm unitId={r.unit_id} />}
+              {!isOwner && !r.photo_url && (
+                <p className="text-sm text-gray-500 mt-2">Nia ya kupanga itapatikana picha ikishawekwa.</p>
+              )}
             </div>
           ))}
         </div>
