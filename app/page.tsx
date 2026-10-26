@@ -20,6 +20,9 @@ export default function HomePage() {
           <a href="/tenants/register" className="block border border-green-600 text-green-700 py-3 rounded-lg font-medium">
             Sajili akaunti ya mpangaji
           </a>
+          <a href="/listings" className="block bg-gray-800 text-white py-3 rounded-lg font-medium">
+          Tazama vyumba vilivyo wazi
+          </a>
         </div>
       </div>
     </div>
