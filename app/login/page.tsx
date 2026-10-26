@@ -16,7 +16,11 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
     if (authError || !data.user) {
       setError(authError?.message || 'Imeshindikana kuingia')
       setLoading(false)
@@ -45,15 +49,32 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold mb-6 text-center text-gray-900">Ingia - Mwenye nyumba</h1>
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
         <form onSubmit={handleLogin} className="space-y-4">
-          <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" />
-          <input required type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" />
-          <button disabled={loading} className="w-full bg-blue-600 text-white py-2.5 rounded-lg disabled:bg-blue-300">
+          <input
+            required
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
+          />
+          <input
+            required
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
+          />
+          <button
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg disabled:bg-blue-300"
+          >
             {loading ? 'Inaingia...' : 'Ingia'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
+          <a href="/" className="text-gray-500">Mwanzo</a>
+          {' · '}
           <a href="/register" className="text-blue-600">Jisajili</a>
           {' · '}
           <a href="/tenants/login" className="text-green-700">Mimi ni mpangaji</a>
