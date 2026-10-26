@@ -12,6 +12,54 @@ type Listing = {
   location: string | null
 }
 
+function InquiryForm({ unitId }: { unitId: string }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [message, setMessage] = useState('')
+  const [note, setNote] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setNote('')
+    const { error: rpcError } = await supabase.rpc('send_inquiry', {
+      p_unit_id: unitId,
+      p_name: name,
+      p_phone: phone,
+      p_message: message,
+    })
+    if (rpcError) {
+      setNote(rpcError.message)
+      return
+    }
+    setName('')
+    setPhone('')
+    setMessage('')
+    setNote('Ujumbe umetumwa kwa mwenye nyumba.')
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="mt-3 text-sm bg-blue-600 text-white px-3 py-1.5 rounded">
+        Nia ya kupanga
+      </button>
+    )
+  }
+
+  return (
+    <form onSubmit={send} className="mt-3 space-y-2">
+      <input required placeholder="Jina lako" value={name} onChange={(e) => setName(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <input required placeholder="Simu yako" value={phone} onChange={(e) => setPhone(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <input placeholder="Ujumbe (si lazima)" value={message} onChange={(e) => setMessage(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <button className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded">Tuma</button>
+      {note && <p className="text-sm text-gray-700">{note}</p>}
+    </form>
+  )
+}
+
 export default function ListingsPage() {
   const [rows, setRows] = useState<Listing[]>([])
   const [query, setQuery] = useState('')
@@ -79,6 +127,7 @@ export default function ListingsPage() {
               <p className="text-lg font-bold text-gray-900 mt-1">
                 TZS {Number(r.rent_amount).toLocaleString()} / mwezi
               </p>
+              <InquiryForm unitId={r.unit_id} />
             </div>
           ))}
         </div>

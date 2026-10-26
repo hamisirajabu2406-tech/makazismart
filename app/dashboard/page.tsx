@@ -2,192 +2,136 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 
-type Property = {
-  id: string
-  name: string
-  type: string
-  location: string
-  status: string
+type Listing = {
+  unit_id: string
+  unit_number: string
+  rent_amount: number
+  property_name: string
+  property_type: string
+  location: string | null
 }
 
-export default function DashboardPage() {
-  const router = useRouter()
-  const [userEmail, setUserEmail] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [properties, setProperties] = useState<Property[]>([])
-  const [occupied, setOccupied] = useState(0)
-  const [vacant, setVacant] = useState(0)
-  const [pendingPayments, setPendingPayments] = useState(0)
-  const [loading, setLoading] = useState(true)
+function InquiryForm({ unitId }: { unitId: string }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [message, setMessage] = useState('')
+  const [note, setNote] = useState('')
+  const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      setUserEmail(user.email || '')
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('user_id', user.id)
-        .single()
-
-      setFullName(profile?.full_name || '')
-
-      const { data } = await supabase
-        .from('properties')
-        .select('id, name, type, location, status')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-
-      const propertyRows = data || []
-      setProperties(propertyRows)
-
-      const propertyIds = propertyRows.map((p) => p.id)
-      if (propertyIds.length === 0) {
-        setLoading(false)
-        return
-      }
-
-      const { data: units } = await supabase
-        .from('units')
-        .select('id, status')
-        .in('property_id', propertyIds)
-
-      const unitRows = units || []
-      setOccupied(unitRows.filter((u) => u.status === 'occupied').length)
-      setVacant(unitRows.filter((u) => u.status !== 'occupied').length)
-
-      const unitIds = unitRows.map((u) => u.id)
-      if (unitIds.length > 0) {
-        const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-
-        const { data: tenants } = await supabase
-          .from('tenants')
-          .select('id')
-          .in('unit_id', unitIds)
-          .eq('status', 'active')
-
-        const { data: payments } = await supabase
-          .from('payments')
-          .select('tenant_id, payment_date, period_start, period_end, status')
-          .in('unit_id', unitIds)
-
-        const paid = new Set(
-          (payments || [])
-            .filter((p) => {
-              if (p.status && p.status !== 'paid') return false
-              if (p.period_start && p.period_end) {
-                return p.period_start.slice(0, 7) <= monthKey && p.period_end.slice(0, 7) >= monthKey
-              }
-              return (p.payment_date || '').slice(0, 7) === monthKey
-            })
-            .map((p) => p.tenant_id)
-        )
-
-        setPendingPayments((tenants || []).filter((t) => !paid.has(t.id)).length)
-      }
-
-      setLoading(false)
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setNote('')
+    const { error: rpcError } = await supabase.rpc('send_inquiry', {
+      p_unit_id: unitId,
+      p_name: name,
+      p_phone: phone,
+      p_message: message,
+    })
+    if (rpcError) {
+      setNote(rpcError.message)
+      return
     }
-
-    load()
-  }, [router])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    setName('')
+    setPhone('')
+    setMessage('')
+    setNote('Ujumbe umetumwa kwa mwenye nyumba.')
   }
 
-  if (loading) {
+  if (!open) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Inapakia...</p>
-      </div>
+      <button onClick={() => setOpen(true)} className="mt-3 text-sm bg-blue-600 text-white px-3 py-1.5 rounded">
+        Nia ya kupanga
+      </button>
     )
   }
 
   return (
+    <form onSubmit={send} className="mt-3 space-y-2">
+      <input required placeholder="Jina lako" value={name} onChange={(e) => setName(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <input required placeholder="Simu yako" value={phone} onChange={(e) => setPhone(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <input placeholder="Ujumbe (si lazima)" value={message} onChange={(e) => setMessage(e.target.value)}
+        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-gray-900" />
+      <button className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded">Tuma</button>
+      {note && <p className="text-sm text-gray-700">{note}</p>}
+    </form>
+  )
+}
+
+export default function ListingsPage() {
+  const [rows, setRows] = useState<Listing[]>([])
+  const [query, setQuery] = useState('')
+  const [type, setType] = useState('zote')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const load = async () => {
+      const { data, error: rpcError } = await supabase.rpc('public_listings')
+      if (rpcError) setError(rpcError.message)
+      setRows(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const filtered = rows.filter((r) => {
+    const text = `${r.property_name} ${r.location || ''} ${r.unit_number}`.toLowerCase()
+    const matchesQuery = text.includes(query.toLowerCase().trim())
+    const matchesType = type === 'zote' || r.property_type === type
+    return matchesQuery && matchesType
+  })
+
+  return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-blue-600">MakaziSmart</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-700">Habari, {fullName || userEmail}</span>
-            <button
-              onClick={handleLogout}
-              className="text-sm bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600"
-            >
-              Toka
-            </button>
-          </div>
-        </div>
-      </header>
+      <div className="max-w-3xl mx-auto px-4 py-10">
+        <a href="/" className="text-sm text-blue-600">← Mwanzo</a>
+        <h1 className="text-2xl font-bold text-gray-900 mt-4">Vyumba vilivyo wazi</h1>
+        <p className="text-gray-600 mb-6">Orodha ya umma. Huna haja ya kuingia.</p>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-5 rounded-xl shadow">
-            <p className="text-sm text-gray-500">Mali Zangu</p>
-            <p className="text-2xl font-bold text-gray-800">{properties.length}</p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow">
-            <p className="text-sm text-gray-500">Vyumba Vilivyokaliwa</p>
-            <p className="text-2xl font-bold text-green-600">{occupied}</p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow">
-            <p className="text-sm text-gray-500">Vyumba Tupu</p>
-            <p className="text-2xl font-bold text-orange-500">{vacant}</p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow">
-            <p className="text-sm text-gray-500">Hawajalipa mwezi huu</p>
-            <p className="text-2xl font-bold text-red-500">{pendingPayments}</p>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tafuta eneo au jina, mfano Sinza"
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
+          />
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
+          >
+            <option value="zote">Aina zote</option>
+            <option value="nyumba">Nyumba</option>
+            <option value="chumba">Chumba</option>
+            <option value="duka">Duka</option>
+            <option value="office">Office</option>
+          </select>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow mb-6">
-          <div className="flex flex-wrap gap-3 mb-4">
-            <a href="/properties/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
-              + Ongeza Mali
-            </a>
-            <a href="/tenants/new" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
-              + Ongeza Mpangaji
-            </a>
-            <a href="/tenants" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">
-              Wapangaji
-            </a>
-            <a href="/payments" className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">
-              Angalia Malipo
-            </a>
-            <a href="/unpaid" className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-              Hawajalipa
-            </a>
-            <a href="/maintenance" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">
-            Matengenezo
-            </a>
-          </div>
+        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
+        {loading && <p className="text-gray-600">Inapakia...</p>}
+        {!loading && filtered.length === 0 && (
+          <p className="text-gray-600">Hakuna chumba kinachoendana na utafutaji.</p>
+        )}
 
-          {properties.length === 0 && <p className="text-gray-600">Bado huna mali.</p>}
-
-          <div className="space-y-3">
-            {properties.map((p) => (
-              <a key={p.id} href={`/properties/${p.id}`} className="block border rounded-lg p-3 hover:bg-gray-50">
-                <p className="font-medium text-gray-900">{p.name}</p>
-                <p className="text-sm text-gray-600">
-                  {p.type} · {p.location || '—'} · {p.status}
-                </p>
-              </a>
-            ))}
-          </div>
+        <div className="space-y-3">
+          {filtered.map((r) => (
+            <div key={r.unit_id} className="bg-white p-4 rounded-xl shadow">
+              <p className="font-semibold text-gray-900">{r.property_name}</p>
+              <p className="text-sm text-gray-600">
+                {r.property_type} · Chumba {r.unit_number} · {r.location || '—'}
+              </p>
+              <p className="text-lg font-bold text-gray-900 mt-1">
+                TZS {Number(r.rent_amount).toLocaleString()} / mwezi
+              </p>
+              <InquiryForm unitId={r.unit_id} />
+            </div>
+          ))}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

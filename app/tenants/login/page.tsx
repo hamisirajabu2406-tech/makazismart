@@ -11,21 +11,33 @@ export default function TenantLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setLoading(true)
+  setError('')
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
-    }
-
-    router.push('/tenants/home')
+  const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+  if (authError || !data.user) {
+    setError(authError?.message || 'Imeshindikana kuingia')
+    setLoading(false)
+    return
   }
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', data.user.id)
+    .maybeSingle()
+
+  if (profile?.role !== 'tenant') {
+    await supabase.auth.signOut()
+    setError('Akaunti hii ni ya mwenye nyumba. Tumia Ingia kama mwenye nyumba.')
+    setLoading(false)
+    return
+  }
+
+  router.push('/tenants/home')
+}
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
