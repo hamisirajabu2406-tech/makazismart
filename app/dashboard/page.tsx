@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [occupied, setOccupied] = useState(0)
   const [vacant, setVacant] = useState(0)
   const [pendingPayments, setPendingPayments] = useState(0)
+  const [newInquiries, setNewInquiries] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -34,9 +35,14 @@ export default function DashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, role')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
+
+      if (profile?.role === 'tenant') {
+        router.push('/tenants/home')
+        return
+      }
 
       setFullName(profile?.full_name || '')
 
@@ -92,6 +98,13 @@ export default function DashboardPage() {
         )
 
         setPendingPayments((tenants || []).filter((t) => !paid.has(t.id)).length)
+
+        const { data: inquiries } = await supabase
+          .from('inquiries')
+          .select('id, status')
+          .in('unit_id', unitIds)
+
+        setNewInquiries((inquiries || []).filter((i) => !i.status || i.status === 'new').length)
       }
 
       setLoading(false)
@@ -133,7 +146,7 @@ export default function DashboardPage() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl shadow">
             <p className="text-sm text-gray-500">Mali Zangu</p>
             <p className="text-2xl font-bold text-gray-800">{properties.length}</p>
@@ -150,31 +163,22 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500">Hawajalipa mwezi huu</p>
             <p className="text-2xl font-bold text-red-500">{pendingPayments}</p>
           </div>
+          <a href="/inquiries" className="bg-white p-5 rounded-xl shadow block">
+            <p className="text-sm text-gray-500">Nia mpya</p>
+            <p className="text-2xl font-bold text-sky-600">{newInquiries}</p>
+          </a>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow mb-6">
           <div className="flex flex-wrap gap-3 mb-4">
-            <a href="/properties/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
-              + Ongeza Mali
-            </a>
-            <a href="/inquiries" className="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm">
-            Nia za kupanga
-            </a>
-            <a href="/tenants/new" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">
-              + Ongeza Mpangaji
-            </a>
-            <a href="/tenants" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">
-              Wapangaji
-            </a>
-            <a href="/payments" className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">
-              Angalia Malipo
-            </a>
-            <a href="/unpaid" className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">
-              Hawajalipa
-            </a>
-            <a href="/maintenance" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">
-            Matengenezo
-            </a>
+            <a href="/properties/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">+ Ongeza Mali</a>
+            <a href="/inquiries" className="bg-sky-600 text-white px-4 py-2 rounded-lg text-sm">Nia za kupanga</a>
+            <a href="/tenants/new" className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">+ Ongeza Mpangaji</a>
+            <a href="/tenants" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm">Wapangaji</a>
+            <a href="/payments" className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm">Angalia Malipo</a>
+            <a href="/unpaid" className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Hawajalipa</a>
+            <a href="/maintenance" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">Matengenezo</a>
+            <a href="/listings" className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm">Vyumba wazi</a>
           </div>
 
           {properties.length === 0 && <p className="text-gray-600">Bado huna mali.</p>}
