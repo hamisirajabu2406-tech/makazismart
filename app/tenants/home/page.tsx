@@ -42,6 +42,13 @@ function coversMonth(p: PaymentRow, monthKey: string) {
   return (p.payment_date || '').slice(0, 7) === monthKey
 }
 
+function waNumber(phone: string) {
+  let n = phone.replace(/\D/g, '')
+  if (n.startsWith('0')) n = '255' + n.slice(1)
+  if (!n.startsWith('255')) n = '255' + n
+  return n
+}
+
 export default function TenantHomePage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -50,6 +57,7 @@ export default function TenantHomePage() {
   const [rent, setRent] = useState(0)
   const [unitId, setUnitId] = useState('')
   const [tenantId, setTenantId] = useState('')
+  const [landlordPhone, setLandlordPhone] = useState('')
   const [payments, setPayments] = useState<PaymentRow[]>([])
   const [requests, setRequests] = useState<RequestRow[]>([])
   const [paidThisMonth, setPaidThisMonth] = useState(false)
@@ -104,6 +112,9 @@ export default function TenantHomePage() {
         setLoading(false)
         return
       }
+
+      const { data: phone } = await supabase.rpc('my_landlord_phone')
+      setLandlordPhone(phone || '')
 
       const { data: unitRow } = await supabase
         .from('units')
@@ -192,6 +203,19 @@ export default function TenantHomePage() {
                   {paidThisMonth ? 'Umelipa' : 'Bado hujalipa'}
                 </span>
               </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl shadow mb-6">
+              <h2 className="font-semibold text-gray-900 mb-3">Wasiliana na mwenye nyumba</h2>
+              {landlordPhone ? (
+                <div className="flex flex-wrap gap-2">
+                  <a href={`tel:${landlordPhone}`} className="text-sm bg-gray-800 text-white px-3 py-1.5 rounded">Piga simu</a>
+                  <a href={`https://wa.me/${waNumber(landlordPhone)}`} className="text-sm bg-green-600 text-white px-3 py-1.5 rounded">WhatsApp</a>
+                  <a href={`sms:${landlordPhone}`} className="text-sm border border-gray-400 px-3 py-1.5 rounded text-gray-800">SMS</a>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Simu ya mwenye nyumba haipatikani.</p>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-xl shadow mb-6">

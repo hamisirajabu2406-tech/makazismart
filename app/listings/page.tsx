@@ -11,6 +11,26 @@ type Listing = {
   property_type: string
   location: string | null
   photo_url: string | null
+  owner_phone: string | null
+}
+
+function waNumber(phone: string) {
+  let n = phone.replace(/\D/g, '')
+  if (n.startsWith('0')) n = '255' + n.slice(1)
+  if (!n.startsWith('255')) n = '255' + n
+  return n
+}
+
+function ContactLinks({ phone }: { phone: string | null }) {
+  if (!phone) return <p className="text-sm text-gray-500 mt-2">Mwenye nyumba hajaweka simu.</p>
+  const text = encodeURIComponent('Habari, nina nia ya kupanga. Naomba maelezo zaidi.')
+  return (
+    <div className="flex flex-wrap gap-2 mt-3">
+      <a href={`tel:${phone}`} className="text-sm bg-gray-800 text-white px-3 py-1.5 rounded">Piga simu</a>
+      <a href={`https://wa.me/${waNumber(phone)}?text=${text}`} className="text-sm bg-green-600 text-white px-3 py-1.5 rounded">WhatsApp</a>
+      <a href={`sms:${phone}?body=${text}`} className="text-sm border border-gray-400 text-gray-800 px-3 py-1.5 rounded">SMS</a>
+    </div>
+  )
 }
 
 function InquiryForm({ unitId }: { unitId: string }) {
@@ -101,7 +121,9 @@ export default function ListingsPage() {
         </a>
         <h1 className="text-2xl font-bold text-gray-900 mt-4">Vyumba vilivyo wazi</h1>
         <p className="text-gray-600 mb-6">
-          {isOwner ? 'Unaangalia soko. Huwezi kutuma nia kwenye akaunti ya mwenye nyumba.' : 'Orodha ya umma. Huna haja ya kuingia.'}
+          {isOwner
+            ? 'Unaangalia soko. Mawasiliano na nia ya kupanga ni kwa wageni tu.'
+            : 'Orodha ya umma. Huna haja ya kuingia.'}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -138,6 +160,7 @@ export default function ListingsPage() {
               <p className="text-lg font-bold text-gray-900 mt-1">
                 TZS {Number(r.rent_amount).toLocaleString()} / mwezi
               </p>
+              {!isOwner && <ContactLinks phone={r.owner_phone} />}
               {!isOwner && r.photo_url && <InquiryForm unitId={r.unit_id} />}
               {!isOwner && !r.photo_url && (
                 <p className="text-sm text-gray-500 mt-2">Nia ya kupanga itapatikana picha ikishawekwa.</p>
