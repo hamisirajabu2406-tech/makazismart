@@ -12,6 +12,21 @@ type Property = {
   status: string
 }
 
+function coversMonth(p: {
+  status: string | null
+  period_start: string | null
+  period_end: string | null
+  payment_date: string | null
+}, monthKey: string) {
+  if (p.status && p.status !== 'paid') return false
+  if (p.period_start && p.period_end) {
+    return p.period_start.slice(0, 7) <= monthKey && p.period_end.slice(0, 7) >= monthKey
+  }
+  return (p.payment_date || '').slice(0, 7) === monthKey
+}
+
+const money = (n: number) => `TZS ${Number(n || 0).toLocaleString()}`
+
 export default function DashboardPage() {
   const router = useRouter()
   const [userEmail, setUserEmail] = useState('')
@@ -21,6 +36,8 @@ export default function DashboardPage() {
   const [vacant, setVacant] = useState(0)
   const [pendingPayments, setPendingPayments] = useState(0)
   const [newInquiries, setNewInquiries] = useState(0)
+  const [collected, setCollected] = useState(0)
+  const [owed, setOwed] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -63,7 +80,7 @@ export default function DashboardPage() {
 
       const { data: units } = await supabase
         .from('units')
-        .select('id, status')
+        .select('id, status, rent_amount')
         .in('property_id', propertyIds)
 
       const unitRows = units || []
@@ -71,32 +88,37 @@ export default function DashboardPage() {
       setVacant(unitRows.filter((u) => u.status !== 'occupied').length)
 
       const unitIds = unitRows.map((u) => u.id)
+      const rentByUnit = Object.fromEntries(unitRows.map((u) => [u.id, Number(u.rent_amount) || 0]))
+
       if (unitIds.length > 0) {
-        const monthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+        const now = new Date()
+        const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
         const { data: tenants } = await supabase
           .from('tenants')
-          .select('id')
+          .select('id, unit_id')
           .in('unit_id', unitIds)
           .eq('status', 'active')
 
         const { data: payments } = await supabase
           .from('payments')
-          .select('tenant_id, payment_date, period_start, period_end, status')
+          .select('tenant_id, amount, payment_date, period_start, period_end, status')
           .in('unit_id', unitIds)
 
         const paid = new Set(
-          (payments || [])
-            .filter((p) => {
-              if (p.status && p.status !== 'paid') return false
-              if (p.period_start && p.period_end) {
-                return p.period_start.slice(0, 7) <= monthKey && p.period_end.slice(0, 7) >= monthKey
-              }
-              return (p.payment_date || '').slice(0, 7) === monthKey
-            })
-            .map((p) => p.tenant_id)
+          (payments || []).filter((p) => coversMonth(p, monthKey)).map((p) => p.tenant_id)
         )
 
+        const collectedSum = (payments || [])
+          .filter((p) => coversMonth(p, monthKey))
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+
+        const owedSum = (tenants || [])
+          .filter((t) => !paid.has(t.id))
+          .reduce((sum, t) => sum + (rentByUnit[t.unit_id] || 0), 0)
+
+        setCollected(collectedSum)
+        setOwed(owedSum)
         setPendingPayments((tenants || []).filter((t) => !paid.has(t.id)).length)
 
         const { data: inquiries } = await supabase
@@ -133,10 +155,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold text-blue-600">MakaziSmart</h1>
           <div className="flex items-center gap-4">
             <span className="text-gray-700">Habari, {fullName || userEmail}</span>
-            <button
-              onClick={handleLogout}
-              className="text-sm bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600"
-            >
+            <button onClick={handleLogout} className="text-sm bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600">
               Toka
             </button>
           </div>
@@ -145,6 +164,17 @@ export default function DashboardPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="bg-white p-5 rounded-xl shadow">
+            <p className="text-sm text-gray-500">Imekusanywa mwezi huu</p>
+            <p className="text-2xl font-bold text-green-600">{money(collected)}</p>
+          </div>
+          <div className="bg-white p-5 rounded-xl shadow">
+            <p className="text-sm text-gray-500">Inadaiwa mwezi huu</p>
+            <p className="text-2xl font-bold text-red-500">{money(owed)}</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl shadow">
@@ -187,9 +217,7 @@ export default function DashboardPage() {
             {properties.map((p) => (
               <a key={p.id} href={`/properties/${p.id}`} className="block border rounded-lg p-3 hover:bg-gray-50">
                 <p className="font-medium text-gray-900">{p.name}</p>
-                <p className="text-sm text-gray-600">
-                  {p.type} · {p.location || '—'} · {p.status}
-                </p>
+                <p className="text-sm text-gray-600">{p.type} · {p.location || '—'} · {p.status}</p>
               </a>
             ))}
           </div>
