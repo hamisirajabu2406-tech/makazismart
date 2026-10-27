@@ -11,6 +11,7 @@ type PaymentRow = {
   payment_method: string | null
   period_start: string | null
   period_end: string | null
+  status: string | null
 }
 
 type RequestRow = {
@@ -33,6 +34,14 @@ function monthLabel(date: string | null) {
   return `${months[index]} ${year}`
 }
 
+function coversMonth(p: PaymentRow, monthKey: string) {
+  if (p.status && p.status !== 'paid') return false
+  if (p.period_start && p.period_end) {
+    return p.period_start.slice(0, 7) <= monthKey && p.period_end.slice(0, 7) >= monthKey
+  }
+  return (p.payment_date || '').slice(0, 7) === monthKey
+}
+
 export default function TenantHomePage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -43,6 +52,8 @@ export default function TenantHomePage() {
   const [tenantId, setTenantId] = useState('')
   const [payments, setPayments] = useState<PaymentRow[]>([])
   const [requests, setRequests] = useState<RequestRow[]>([])
+  const [paidThisMonth, setPaidThisMonth] = useState(false)
+  const [thisMonth, setThisMonth] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [message, setMessage] = useState('')
@@ -60,9 +71,24 @@ export default function TenantHomePage() {
 
   useEffect(() => {
     const load = async () => {
+      const now = new Date()
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      setThisMonth(`${months[now.getMonth()]} ${now.getFullYear()}`)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/tenants/login')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (profile?.role && profile.role !== 'tenant') {
+        router.push('/dashboard')
         return
       }
 
@@ -97,17 +123,19 @@ export default function TenantHomePage() {
 
       const { data: paymentRows } = await supabase
         .from('payments')
-        .select('id, amount, payment_date, payment_method, period_start, period_end')
+        .select('id, amount, payment_date, payment_method, period_start, period_end, status')
         .eq('tenant_id', tenant.id)
         .order('payment_date', { ascending: false })
 
+      const list = paymentRows || []
+      setPaidThisMonth(list.some((p) => coversMonth(p, monthKey)))
       setName(tenant.full_name)
       setTenantId(tenant.id)
       setUnit(unitRow?.unit_number || '')
       setRent(unitRow?.rent_amount || 0)
       setProperty(propertyName)
       setUnitId(unitRow?.id || '')
-      setPayments(paymentRows || [])
+      setPayments(list)
       if (unitRow?.id) await loadRequests(unitRow.id)
       setLoading(false)
     }
@@ -154,8 +182,16 @@ export default function TenantHomePage() {
         {!error && (
           <>
             <div className="bg-white p-5 rounded-xl shadow mb-6">
-              <p className="text-gray-800">{property} · Chumba {unit}</p>
-              <p className="text-gray-600">Kodi: TZS {Number(rent).toLocaleString()} / mwezi</p>
+              <div className="flex justify-between gap-3">
+                <div>
+                  <p className="text-gray-800">{property} · Chumba {unit}</p>
+                  <p className="text-gray-600">Kodi: TZS {Number(rent).toLocaleString()} / mwezi</p>
+                  <p className="text-sm text-gray-500 mt-1">{thisMonth}</p>
+                </div>
+                <span className={paidThisMonth ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                  {paidThisMonth ? 'Umelipa' : 'Bado hujalipa'}
+                </span>
+              </div>
             </div>
 
             <div className="bg-white p-5 rounded-xl shadow mb-6">
