@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-type Row = {
+type UserRow = {
   user_id: string
   full_name: string | null
   phone: string | null
@@ -14,9 +14,21 @@ type Row = {
   units: number
 }
 
+type PropertyRow = {
+  property_id: string
+  property_name: string
+  property_type: string
+  location: string | null
+  owner_name: string | null
+  owner_email: string | null
+  units: number
+  vacant: number
+}
+
 export default function AdminPage() {
   const router = useRouter()
-  const [rows, setRows] = useState<Row[]>([])
+  const [users, setUsers] = useState<UserRow[]>([])
+  const [properties, setProperties] = useState<PropertyRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -28,31 +40,35 @@ export default function AdminPage() {
         return
       }
 
-      const { data, error: rpcError } = await supabase.rpc('admin_overview')
-      if (rpcError) {
-        setError(rpcError.message)
+      const { data: me } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (me?.role !== 'admin') {
+        router.push('/dashboard')
+        return
+      }
+
+      const { data: userRows, error: userError } = await supabase.rpc('admin_overview')
+      const { data: propertyRows, error: propertyError } = await supabase.rpc('admin_properties')
+
+      if (userError || propertyError) {
+        setError(userError?.message || propertyError?.message || 'Imeshindikana')
         setLoading(false)
         return
       }
-      if (!data || data.length === 0) {
-        const { data: me } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        if (me?.role !== 'admin') {
-          router.push('/dashboard')
-          return
-        }
-      }
-      setRows(data || [])
+
+      setUsers(userRows || [])
+      setProperties(propertyRows || [])
       setLoading(false)
     }
     load()
   }, [router])
 
-  const landlords = rows.filter((r) => r.role !== 'tenant')
-  const tenants = rows.filter((r) => r.role === 'tenant')
+  const landlords = users.filter((r) => r.role !== 'tenant')
+  const tenants = users.filter((r) => r.role === 'tenant')
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -64,13 +80,34 @@ export default function AdminPage() {
 
         {!loading && (
           <>
+            <h2 className="font-semibold text-gray-800 mb-2">Mali zote ({properties.length})</h2>
+            <div className="space-y-3 mb-8">
+              {properties.map((p) => (
+                <div key={p.property_id} className="bg-white p-4 rounded-xl shadow">
+                  <p className="font-semibold text-gray-900">{p.property_name}</p>
+                  <p className="text-sm text-gray-600">
+                    {p.property_type} · {p.location || '—'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {p.owner_name || '—'} · {p.owner_email || '—'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Vyumba {p.units} · Tupu {p.vacant}
+                  </p>
+                </div>
+              ))}
+              {properties.length === 0 && <p className="text-gray-600">Hakuna mali.</p>}
+            </div>
+
             <h2 className="font-semibold text-gray-800 mb-2">Wenye nyumba ({landlords.length})</h2>
             <div className="space-y-3 mb-8">
               {landlords.map((r) => (
                 <div key={r.user_id} className="bg-white p-4 rounded-xl shadow">
                   <p className="font-semibold text-gray-900">{r.full_name || '—'} · {r.role}</p>
                   <p className="text-sm text-gray-600">{r.email}</p>
-                  <p className="text-sm text-gray-600">{r.phone || 'Hakuna simu'} · Mali {r.properties} · Vyumba {r.units}</p>
+                  <p className="text-sm text-gray-600">
+                    {r.phone || 'Hakuna simu'} · Mali {r.properties} · Vyumba {r.units}
+                  </p>
                 </div>
               ))}
             </div>
