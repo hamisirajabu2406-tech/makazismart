@@ -209,6 +209,7 @@ export default function DashboardPage() {
             <a href="/unpaid" className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm">Hawajalipa</a>
             <a href="/maintenance" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">Matengenezo</a>
             <a href="/listings" className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm">Vyumba wazi</a>
+            <a href="/admin" className="bg-black text-white px-4 py-2 rounded-lg text-sm">Admin</a>
           </div>
 
           {properties.length === 0 && <p className="text-gray-600">Bado huna mali.</p>}
