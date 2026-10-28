@@ -25,10 +25,23 @@ type PropertyRow = {
   vacant: number
 }
 
+type InquiryRow = {
+  inquiry_id: string
+  sender_name: string
+  sender_phone: string
+  message: string | null
+  status: string | null
+  property_name: string
+  unit_number: string
+  owner_name: string | null
+  created_at: string
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const [users, setUsers] = useState<UserRow[]>([])
   const [properties, setProperties] = useState<PropertyRow[]>([])
+  const [inquiries, setInquiries] = useState<InquiryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -53,15 +66,17 @@ export default function AdminPage() {
 
       const { data: userRows, error: userError } = await supabase.rpc('admin_overview')
       const { data: propertyRows, error: propertyError } = await supabase.rpc('admin_properties')
+      const { data: inquiryRows, error: inquiryError } = await supabase.rpc('admin_inquiries')
 
-      if (userError || propertyError) {
-        setError(userError?.message || propertyError?.message || 'Imeshindikana')
+      if (userError || propertyError || inquiryError) {
+        setError(userError?.message || propertyError?.message || inquiryError?.message || 'Imeshindikana')
         setLoading(false)
         return
       }
 
       setUsers(userRows || [])
       setProperties(propertyRows || [])
+      setInquiries(inquiryRows || [])
       setLoading(false)
     }
     load()
@@ -80,6 +95,22 @@ export default function AdminPage() {
 
         {!loading && (
           <>
+          <h2 className="font-semibold text-gray-800 mb-2">Nia za kupanga ({inquiries.length})</h2>
+<div className="space-y-3 mb-8">
+  {inquiries.map((i) => (
+    <div key={i.inquiry_id} className="bg-white p-4 rounded-xl shadow">
+      <div className="flex justify-between gap-3">
+        <p className="font-semibold text-gray-900">{i.sender_name} · {i.sender_phone}</p>
+        <span className="text-sm text-sky-600">{i.status === 'contacted' ? 'Nimewasiliana' : 'Mpya'}</span>
+      </div>
+      <p className="text-sm text-gray-600">{i.property_name} · Chumba {i.unit_number}</p>
+      <p className="text-sm text-gray-600">Mwenye nyumba: {i.owner_name || '—'}</p>
+      {i.message && <p className="text-sm text-gray-800 mt-1">{i.message}</p>}
+    </div>
+  ))}
+  {inquiries.length === 0 && <p className="text-gray-600">Bado hakuna nia.</p>}
+</div>
+
             <h2 className="font-semibold text-gray-800 mb-2">Mali zote ({properties.length})</h2>
             <div className="space-y-3 mb-8">
               {properties.map((p) => (
