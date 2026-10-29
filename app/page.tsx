@@ -28,9 +28,9 @@ export default function HomePage() {
             <a href="/dashboard" className="bg-emerald-300 text-emerald-950 font-medium px-5 py-3 rounded-lg">
               Dashibodi ya mwenye nyumba
             </a>
-            <a href="/listings" className="border border-emerald-200/50 text-white px-5 py-3 rounded-lg">
-              Tazama vyumba
-            </a>
+           <a href="/listings" className="border border-emerald-200/50 text-white px-5 py-3 rounded-lg">
+  Tazama vyumba
+</a>
           </div>
         </div>
       </section>
