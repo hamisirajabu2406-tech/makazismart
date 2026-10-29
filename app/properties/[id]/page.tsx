@@ -17,6 +17,7 @@ type Unit = {
   unit_number: string
   rent_amount: number
   status: string | null
+  listed: boolean
   photo_url: string | null
   tenant_id: string | null
   tenant_name: string | null
@@ -62,7 +63,7 @@ export default function PropertyDetailsPage() {
 
     const { data: unitRows } = await supabase
       .from('units')
-      .select('id, unit_number, rent_amount, status, photo_url')
+      .select('id, unit_number, rent_amount, status, listed, photo_url')
       .eq('property_id', id)
       .order('unit_number')
 
@@ -85,6 +86,7 @@ export default function PropertyDetailsPage() {
     setUnits(
       list.map((u) => ({
         ...u,
+        listed: u.listed !== false,
         tenant_id: tenantByUnit[u.id]?.id || null,
         tenant_name: tenantByUnit[u.id]?.full_name || null,
         tenant_phone: tenantByUnit[u.id]?.phone || null,
@@ -120,6 +122,13 @@ export default function PropertyDetailsPage() {
     setBusyId('')
   }
 
+  const toggleListed = async (unit: Unit) => {
+    setBusyId(unit.id)
+    await supabase.from('units').update({ listed: !unit.listed }).eq('id', unit.id)
+    await load(propertyId)
+    setBusyId('')
+  }
+
   const uploadPhoto = async (unitId: string, file: File) => {
     setBusyId(unitId)
     const path = `${propertyId}/${unitId}/${Date.now()}-${file.name}`
@@ -143,10 +152,8 @@ export default function PropertyDetailsPage() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         <a href="/dashboard" className="text-sm text-blue-600">← Dashboard</a>
         <h1 className="text-2xl font-bold text-gray-900 mt-3">{property.name}</h1>
-        <a href={`/properties/${propertyId}/edit`} className="text-sm text-blue-600">
-  Hariri mali
-</a>
-        <p className="text-gray-600 mb-6">
+        <a href={`/properties/${propertyId}/edit`} className="text-sm text-blue-600">Hariri mali</a>
+        <p className="text-gray-600 mb-6 mt-1">
           {property.type} · {property.location || property.address || '—'}
         </p>
 
@@ -194,9 +201,16 @@ export default function PropertyDetailsPage() {
                     <p className="text-sm text-gray-400 mt-1">Hakuna mpangaji</p>
                   )}
                 </div>
-                <span className={u.status === 'occupied' ? 'text-green-600' : 'text-orange-500'}>
-                  {u.status === 'occupied' ? 'Kimekaliwa' : 'Tupu'}
-                </span>
+                <div className="text-right text-sm">
+                  <p className={u.status === 'occupied' ? 'text-green-600' : 'text-orange-500'}>
+                    {u.status === 'occupied' ? 'Kimekaliwa' : 'Tupu'}
+                  </p>
+                  {u.status !== 'occupied' && (
+                    <p className={u.listed ? 'text-emerald-700' : 'text-gray-400'}>
+                      {u.listed ? 'Sokoni' : 'Imefichwa'}
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="flex flex-wrap gap-4 mt-3 items-center">
                 <button
@@ -208,6 +222,15 @@ export default function PropertyDetailsPage() {
                 >
                   Badilisha kodi
                 </button>
+                {u.status !== 'occupied' && (
+                  <button
+                    onClick={() => toggleListed(u)}
+                    disabled={busyId === u.id}
+                    className="text-sm text-slate-700"
+                  >
+                    {u.listed ? 'Ficha sokoni' : 'Onyesha sokoni'}
+                  </button>
+                )}
                 <label className="text-sm text-gray-700 cursor-pointer">
                   {busyId === u.id ? 'Inapakia...' : u.photo_url ? 'Badilisha picha' : 'Weka picha'}
                   <input
