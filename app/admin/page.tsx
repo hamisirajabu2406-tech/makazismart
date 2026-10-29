@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+type Money = {
+  collected: number
+  owed: number
+  unpaid_tenants: number
+  landlords_waiting: number
+}
+
 type UserRow = {
   user_id: string
   full_name: string | null
@@ -39,6 +46,7 @@ type InquiryRow = {
 
 export default function AdminPage() {
   const router = useRouter()
+  const [money, setMoney] = useState<Money | null>(null)
   const [users, setUsers] = useState<UserRow[]>([])
   const [properties, setProperties] = useState<PropertyRow[]>([])
   const [inquiries, setInquiries] = useState<InquiryRow[]>([])
@@ -64,16 +72,19 @@ export default function AdminPage() {
         return
       }
 
+      const { data: moneyRows, error: moneyError } = await supabase.rpc('admin_month_money')
       const { data: userRows, error: userError } = await supabase.rpc('admin_overview')
       const { data: propertyRows, error: propertyError } = await supabase.rpc('admin_properties')
       const { data: inquiryRows, error: inquiryError } = await supabase.rpc('admin_inquiries')
 
-      if (userError || propertyError || inquiryError) {
-        setError(userError?.message || propertyError?.message || inquiryError?.message || 'Imeshindikana')
+      const failed = moneyError || userError || propertyError || inquiryError
+      if (failed) {
+        setError(failed.message)
         setLoading(false)
         return
       }
 
+      setMoney(moneyRows?.[0] || null)
       setUsers(userRows || [])
       setProperties(propertyRows || [])
       setInquiries(inquiryRows || [])
@@ -95,36 +106,51 @@ export default function AdminPage() {
 
         {!loading && (
           <>
-          <h2 className="font-semibold text-gray-800 mb-2">Nia za kupanga ({inquiries.length})</h2>
-<div className="space-y-3 mb-8">
-  {inquiries.map((i) => (
-    <div key={i.inquiry_id} className="bg-white p-4 rounded-xl shadow">
-      <div className="flex justify-between gap-3">
-        <p className="font-semibold text-gray-900">{i.sender_name} · {i.sender_phone}</p>
-        <span className="text-sm text-sky-600">{i.status === 'contacted' ? 'Nimewasiliana' : 'Mpya'}</span>
-      </div>
-      <p className="text-sm text-gray-600">{i.property_name} · Chumba {i.unit_number}</p>
-      <p className="text-sm text-gray-600">Mwenye nyumba: {i.owner_name || '—'}</p>
-      {i.message && <p className="text-sm text-gray-800 mt-1">{i.message}</p>}
-    </div>
-  ))}
-  {inquiries.length === 0 && <p className="text-gray-600">Bado hakuna nia.</p>}
-</div>
+            {money && (
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                <div className="bg-white p-4 rounded-xl shadow">
+                  <p className="text-sm text-gray-500">Imekusanywa mwezi huu</p>
+                  <p className="text-xl font-bold text-green-600">TZS {Number(money.collected).toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow">
+                  <p className="text-sm text-gray-500">Inadaiwa mwezi huu</p>
+                  <p className="text-xl font-bold text-red-500">TZS {Number(money.owed).toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow">
+                  <p className="text-sm text-gray-500">Wapangaji hawajalipa</p>
+                  <p className="text-xl font-bold text-gray-900">{money.unpaid_tenants}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow">
+                  <p className="text-sm text-gray-500">Wenye nyumba wenye madai</p>
+                  <p className="text-xl font-bold text-gray-900">{money.landlords_waiting}</p>
+                </div>
+              </div>
+            )}
+
+            <h2 className="font-semibold text-gray-800 mb-2">Nia za kupanga ({inquiries.length})</h2>
+            <div className="space-y-3 mb-8">
+              {inquiries.map((i) => (
+                <div key={i.inquiry_id} className="bg-white p-4 rounded-xl shadow">
+                  <div className="flex justify-between gap-3">
+                    <p className="font-semibold text-gray-900">{i.sender_name} · {i.sender_phone}</p>
+                    <span className="text-sm text-sky-600">{i.status === 'contacted' ? 'Nimewasiliana' : 'Mpya'}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">{i.property_name} · Chumba {i.unit_number}</p>
+                  <p className="text-sm text-gray-600">Mwenye nyumba: {i.owner_name || '—'}</p>
+                  {i.message && <p className="text-sm text-gray-800 mt-1">{i.message}</p>}
+                </div>
+              ))}
+              {inquiries.length === 0 && <p className="text-gray-600">Bado hakuna nia.</p>}
+            </div>
 
             <h2 className="font-semibold text-gray-800 mb-2">Mali zote ({properties.length})</h2>
             <div className="space-y-3 mb-8">
               {properties.map((p) => (
                 <div key={p.property_id} className="bg-white p-4 rounded-xl shadow">
                   <p className="font-semibold text-gray-900">{p.property_name}</p>
-                  <p className="text-sm text-gray-600">
-                    {p.property_type} · {p.location || '—'}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {p.owner_name || '—'} · {p.owner_email || '—'}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Vyumba {p.units} · Tupu {p.vacant}
-                  </p>
+                  <p className="text-sm text-gray-600">{p.property_type} · {p.location || '—'}</p>
+                  <p className="text-sm text-gray-600">{p.owner_name || '—'} · {p.owner_email || '—'}</p>
+                  <p className="text-sm text-gray-600">Vyumba {p.units} · Tupu {p.vacant}</p>
                 </div>
               ))}
               {properties.length === 0 && <p className="text-gray-600">Hakuna mali.</p>}
