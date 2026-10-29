@@ -19,6 +19,7 @@ type RequestRow = {
   title: string
   status: string
   description: string | null
+  photo_url: string | null
 }
 
 const months = [
@@ -67,11 +68,12 @@ export default function TenantHomePage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
 
   const loadRequests = async (id: string) => {
     const { data } = await supabase
       .from('maintenance_requests')
-      .select('id, title, status, description')
+      .select('id, title, status, description, photo_url')
       .eq('unit_id', id)
       .order('created_at', { ascending: false })
     setRequests(data || [])
@@ -154,24 +156,38 @@ export default function TenantHomePage() {
   }, [router])
 
   const sendRequest = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMessage('')
-    const { error: insertError } = await supabase.from('maintenance_requests').insert({
-      unit_id: unitId,
-      tenant_id: tenantId || null,
-      title,
-      description,
-      status: 'pending',
-    })
-    if (insertError) {
-      setMessage(insertError.message)
+  e.preventDefault()
+  setMessage('')
+  let photoUrl: string | null = null
+
+  if (photoFile) {
+    const path = `${unitId}/${Date.now()}-${photoFile.name}`
+    const { error: uploadError } = await supabase.storage.from('maintenance-photos').upload(path, photoFile)
+    if (uploadError) {
+      setMessage(uploadError.message)
       return
     }
-    setTitle('')
-    setDescription('')
-    setMessage('Ombi limetumwa kwa mwenye nyumba.')
-    await loadRequests(unitId)
+    photoUrl = supabase.storage.from('maintenance-photos').getPublicUrl(path).data.publicUrl
   }
+
+  const { error: insertError } = await supabase.from('maintenance_requests').insert({
+    unit_id: unitId,
+    tenant_id: tenantId || null,
+    title,
+    description,
+    status: 'pending',
+    photo_url: photoUrl,
+  })
+  if (insertError) {
+    setMessage(insertError.message)
+    return
+  }
+  setTitle('')
+  setDescription('')
+  setPhotoFile(null)
+  setMessage('Ombi limetumwa kwa mwenye nyumba.')
+  await loadRequests(unitId)
+}
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -242,9 +258,10 @@ export default function TenantHomePage() {
                   <div key={r.id} className="border rounded-lg p-3">
                     <div className="flex justify-between gap-3">
                       <p className="font-medium text-gray-900">{r.title}</p>
-                      <span className={r.status === 'done' ? 'text-green-600 text-sm' : 'text-amber-600 text-sm'}>
-                        {r.status === 'done' ? 'Imekamilika' : 'Inasubiri'}
-                      </span>
+                     <span className={r.status === 'done' ? 'text-green-600 text-sm' : 'text-amber-600 text-sm'}>
+  {r.status === 'done' ? 'Imekamilika' : r.status === 'assigned' ? 'Fundi amepangwa' : 'Imepokelewa'}
+</span>
+{r.photo_url && <img src={r.photo_url} alt="" className="mt-2 h-32 w-full object-cover rounded-lg" />}
                     </div>
                     {r.description && <p className="text-sm text-gray-600 mt-1">{r.description}</p>}
                   </div>
@@ -258,6 +275,8 @@ export default function TenantHomePage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" />
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Maelezo" rows={3}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" />
+                <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+  className="w-full text-sm text-gray-700" />
               <button className="bg-amber-600 text-white px-4 py-2 rounded-lg">Tuma</button>
               {message && <p className="text-sm text-gray-700">{message}</p>}
             </form>

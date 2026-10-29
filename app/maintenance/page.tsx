@@ -9,8 +9,25 @@ type RequestRow = {
   title: string
   description: string | null
   status: string
+  photo_url: string | null
   unit_number: string
   property_name: string
+}
+
+const label: Record<string, string> = {
+  pending: 'Imepokelewa',
+  assigned: 'Fundi amepangwa',
+  done: 'Imekamilika',
+}
+
+const nextStatus: Record<string, string> = {
+  pending: 'assigned',
+  assigned: 'done',
+}
+
+const nextLabel: Record<string, string> = {
+  pending: 'Panga fundi',
+  assigned: 'Weka imekamilika',
 }
 
 export default function MaintenancePage() {
@@ -26,11 +43,7 @@ export default function MaintenancePage() {
       return
     }
 
-    const { data: properties } = await supabase
-      .from('properties')
-      .select('id, name')
-      .eq('owner_id', user.id)
-
+    const { data: properties } = await supabase.from('properties').select('id, name').eq('owner_id', user.id)
     const propertyIds = (properties || []).map((p) => p.id)
     if (propertyIds.length === 0) {
       setRows([])
@@ -38,11 +51,7 @@ export default function MaintenancePage() {
       return
     }
 
-    const { data: units } = await supabase
-      .from('units')
-      .select('id, unit_number, property_id')
-      .in('property_id', propertyIds)
-
+    const { data: units } = await supabase.from('units').select('id, unit_number, property_id').in('property_id', propertyIds)
     const unitIds = (units || []).map((u) => u.id)
     if (unitIds.length === 0) {
       setRows([])
@@ -52,7 +61,7 @@ export default function MaintenancePage() {
 
     const { data: requests } = await supabase
       .from('maintenance_requests')
-      .select('id, title, description, status, unit_id')
+      .select('id, title, description, status, photo_url, unit_id')
       .in('unit_id', unitIds)
       .order('created_at', { ascending: false })
 
@@ -66,7 +75,8 @@ export default function MaintenancePage() {
           id: r.id,
           title: r.title,
           description: r.description,
-          status: r.status,
+          status: r.status || 'pending',
+          photo_url: r.photo_url,
           unit_number: unit?.unit_number || '—',
           property_name: propertyName[unit?.property_id] || '—',
         }
@@ -79,9 +89,11 @@ export default function MaintenancePage() {
     load()
   }, [router])
 
-  const markDone = async (id: string) => {
-    setBusyId(id)
-    await supabase.from('maintenance_requests').update({ status: 'done' }).eq('id', id)
+  const advance = async (row: RequestRow) => {
+    const status = nextStatus[row.status]
+    if (!status) return
+    setBusyId(row.id)
+    await supabase.from('maintenance_requests').update({ status }).eq('id', row.id)
     await load()
     setBusyId('')
   }
@@ -92,32 +104,29 @@ export default function MaintenancePage() {
         <a href="/dashboard" className="text-sm text-blue-600">← Dashboard</a>
         <div className="flex justify-between items-center mt-4 mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Matengenezo</h1>
-          <a href="/maintenance/new" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">
-            + Ombi jipya
-          </a>
+          <a href="/maintenance/new" className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm">+ Ombi jipya</a>
         </div>
-
         {loading && <p className="text-gray-600">Inapakia...</p>}
         {!loading && rows.length === 0 && <p className="text-gray-600">Hakuna maombi.</p>}
-
         <div className="space-y-3">
           {rows.map((r) => (
             <div key={r.id} className="bg-white p-4 rounded-xl shadow">
               <div className="flex justify-between gap-3">
                 <p className="font-semibold text-gray-900">{r.title}</p>
                 <span className={r.status === 'done' ? 'text-green-600 text-sm' : 'text-amber-600 text-sm'}>
-                  {r.status === 'done' ? 'Imekamilika' : 'Inasubiri'}
+                  {label[r.status] || r.status}
                 </span>
               </div>
               <p className="text-sm text-gray-600">{r.property_name} · Chumba {r.unit_number}</p>
               {r.description && <p className="text-sm text-gray-700 mt-1">{r.description}</p>}
-              {r.status !== 'done' && (
+              {r.photo_url && <img src={r.photo_url} alt="" className="mt-3 h-40 w-full object-cover rounded-lg" />}
+              {nextStatus[r.status] && (
                 <button
-                  onClick={() => markDone(r.id)}
+                  onClick={() => advance(r)}
                   disabled={busyId === r.id}
                   className="mt-3 text-sm bg-green-600 text-white px-3 py-1.5 rounded disabled:bg-green-300"
                 >
-                  {busyId === r.id ? 'Inahifadhi...' : 'Imekamilika'}
+                  {busyId === r.id ? 'Inahifadhi...' : nextLabel[r.status]}
                 </button>
               )}
             </div>
