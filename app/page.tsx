@@ -1,57 +1,78 @@
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="max-w-3xl mx-auto px-4 pt-10 pb-6">
-        <p className="text-sm font-semibold tracking-wide text-blue-600">MAKAZISMART</p>
-        <h1 className="text-3xl font-bold text-slate-900 mt-2">
-          Simamia kodi, wapangaji na matengenezo mahali pamoja.
-        </h1>
-        <p className="text-slate-600 mt-3">
-          Kwa wenye nyumba na wapangaji Dar es Salaam na Tanzania. Risiti, ukumbusho wa WhatsApp, na vyumba vilivyo wazi.
-        </p>
+    <div className="min-h-screen bg-white text-slate-900">
+      <header className="border-b border-slate-100">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <a href="/" className="text-lg font-semibold text-emerald-700">MakaziSmart</a>
+          <div className="flex items-center gap-2">
+            <a href="/login" className="text-sm text-slate-600 px-3 py-2">Ingia</a>
+            <a href="/listings" className="text-sm bg-slate-900 text-white px-3 py-2 rounded-lg">
+              Vyumba wazi
+            </a>
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 pb-12">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-semibold text-slate-900">Kodi</p>
-            <p className="text-sm text-slate-600 mt-1">Rekodi malipo na upakue risiti ya PDF.</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-semibold text-slate-900">Ukumbusho</p>
-            <p className="text-sm text-slate-600 mt-1">Tuma WhatsApp kwa aliyechelewa kulipa.</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="font-semibold text-slate-900">Soko</p>
-            <p className="text-sm text-slate-600 mt-1">Onyesha chumba tupu pamoja na picha na simu yako.</p>
+      <section className="bg-gradient-to-b from-emerald-800 to-emerald-700 text-white">
+        <div className="max-w-3xl mx-auto px-4 py-20 text-center">
+          <p className="inline-block text-xs tracking-widest bg-emerald-900/40 border border-emerald-500/40 rounded-full px-3 py-1">
+            KODI, WAPANGAJI NA SOKO
+          </p>
+          <h1 className="text-4xl sm:text-5xl font-bold mt-6 leading-tight">
+            Simamia nyumba yako bila daftari
+          </h1>
+          <p className="text-emerald-100 mt-4 text-lg">
+            Rekodi kodi, toa risiti, ukumbushe mpangaji kwa WhatsApp, na uonyeshe chumba tupu kwa wapangaji wapya.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
+            <a href="/dashboard" className="bg-emerald-300 text-emerald-950 font-medium px-5 py-3 rounded-lg">
+              Dashibodi ya mwenye nyumba
+            </a>
+            <a href="/listings" className="border border-emerald-200/50 text-white px-5 py-3 rounded-lg">
+              Tazama vyumba
+            </a>
           </div>
         </div>
+      </section>
 
-        <div className="bg-white rounded-2xl shadow-sm p-6 space-y-3">
-          <a href="/login" className="block bg-blue-600 text-white text-center py-3 rounded-xl font-medium">
-            Ingia kama mwenye nyumba
-          </a>
-          <a href="/register" className="block border border-blue-600 text-blue-600 text-center py-3 rounded-xl font-medium">
+      <section className="max-w-5xl mx-auto px-4 py-16">
+        <h2 className="text-2xl font-bold text-center">MakaziSmart inakusaidia vipi</h2>
+        <p className="text-center text-slate-500 mt-2 mb-10">
+          Kazi za kila mwezi, mahali pamoja.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <article className="border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <p className="font-semibold">Kodi na risiti</p>
+            <p className="text-sm text-slate-600 mt-2">
+              Rekodi M-Pesa, Mixx, Airtel au pesa taslimu. Pakua risiti ya PDF yenye mwezi wa kodi.
+            </p>
+          </article>
+          <article className="border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <p className="font-semibold">Ukumbusho</p>
+            <p className="text-sm text-slate-600 mt-2">
+              Ona nani hajalipa mwezi huu, kisha tuma ujumbe wa WhatsApp ulioandikwa tayari.
+            </p>
+          </article>
+          <article className="border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <p className="font-semibold">Chumba tupu</p>
+            <p className="text-sm text-slate-600 mt-2">
+              Weka picha na maelezo. Mgeni anakupigia au anakutumia nia ya kupanga.
+            </p>
+          </article>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mt-12">
+          <a href="/register" className="text-center bg-emerald-700 text-white px-5 py-3 rounded-lg">
             Sajili mali yako
           </a>
-          <a href="/tenants/login" className="block bg-green-600 text-white text-center py-3 rounded-xl font-medium">
+          <a href="/tenants/login" className="text-center border border-slate-300 px-5 py-3 rounded-lg">
             Ingia kama mpangaji
           </a>
-          <a href="/tenants/register" className="block border border-green-600 text-green-700 text-center py-3 rounded-xl font-medium">
-            Sajili akaunti ya mpangaji
-          </a>
-          <a href="/listings" className="block bg-slate-900 text-white text-center py-3 rounded-xl font-medium">
-            Tazama vyumba vilivyo wazi
-          </a>
-          <a href="/forgot-password" className="block text-center text-sm text-slate-500 pt-2">
-            Umesahau password?
-          </a>
         </div>
-
-        <p className="text-xs text-slate-400 mt-6">
-          MakaziSmart inasaidia kumbukumbu za kodi. Si risiti ya kodi ya serikali na si mkataba wa kupangisha.
+        <p className="text-center text-xs text-slate-400 mt-8">
+          Kumbukumbu ya kodi tu. Si risiti ya serikali na si mkataba wa kupangisha.
         </p>
-      </main>
+      </section>
     </div>
   )
 }
