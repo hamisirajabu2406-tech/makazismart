@@ -143,6 +143,9 @@ export default function PropertyDetailsPage() {
       <div className="max-w-3xl mx-auto px-4 py-10">
         <a href="/dashboard" className="text-sm text-blue-600">← Dashboard</a>
         <h1 className="text-2xl font-bold text-gray-900 mt-3">{property.name}</h1>
+        <a href={`/properties/${propertyId}/edit`} className="text-sm text-blue-600">
+  Hariri mali
+</a>
         <p className="text-gray-600 mb-6">
           {property.type} · {property.location || property.address || '—'}
         </p>
