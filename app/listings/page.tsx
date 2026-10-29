@@ -10,6 +10,7 @@ type Listing = {
   property_name: string
   property_type: string
   location: string | null
+  description: string | null
   photo_url: string | null
   owner_phone: string | null
 }
@@ -109,7 +110,7 @@ export default function ListingsPage() {
   }, [])
 
   const filtered = rows.filter((r) => {
-    const text = `${r.property_name} ${r.location || ''} ${r.unit_number}`.toLowerCase()
+    const text = `${r.property_name} ${r.location || ''} ${r.description || ''} ${r.unit_number}`.toLowerCase()
     return text.includes(query.toLowerCase().trim()) && (type === 'zote' || r.property_type === type)
   })
 
@@ -157,6 +158,9 @@ export default function ListingsPage() {
               <p className="text-sm text-gray-600">
                 {r.property_type} · Chumba {r.unit_number} · {r.location || '—'}
               </p>
+              {r.description && (
+                <p className="text-sm text-gray-700 mt-2">{r.description}</p>
+              )}
               <p className="text-lg font-bold text-gray-900 mt-1">
                 TZS {Number(r.rent_amount).toLocaleString()} / mwezi
               </p>
