@@ -15,6 +15,7 @@ export default function NewMaintenancePage() {
   const [unitId, setUnitId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -26,11 +27,7 @@ export default function NewMaintenancePage() {
         return
       }
 
-      const { data: properties } = await supabase
-        .from('properties')
-        .select('id, name')
-        .eq('owner_id', user.id)
-
+      const { data: properties } = await supabase.from('properties').select('id, name').eq('owner_id', user.id)
       const propertyIds = (properties || []).map((p) => p.id)
       if (propertyIds.length === 0) return
 
@@ -55,11 +52,24 @@ export default function NewMaintenancePage() {
     setLoading(true)
     setError('')
 
+    let photoUrl: string | null = null
+    if (photoFile) {
+      const path = `${unitId}/${Date.now()}-${photoFile.name}`
+      const { error: uploadError } = await supabase.storage.from('maintenance-photos').upload(path, photoFile)
+      if (uploadError) {
+        setError(uploadError.message)
+        setLoading(false)
+        return
+      }
+      photoUrl = supabase.storage.from('maintenance-photos').getPublicUrl(path).data.publicUrl
+    }
+
     const { error: insertError } = await supabase.from('maintenance_requests').insert({
       unit_id: unitId,
       title,
       description,
       status: 'pending',
+      photo_url: photoUrl,
     })
 
     if (insertError) {
@@ -77,7 +87,6 @@ export default function NewMaintenancePage() {
         <a href="/maintenance" className="text-sm text-blue-600">← Matengenezo</a>
         <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-6">Ombi la matengenezo</h1>
         {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
-
         {units.length === 0 ? (
           <p className="text-gray-600">Ongeza chumba kwanza.</p>
         ) : (
@@ -94,13 +103,17 @@ export default function NewMaintenancePage() {
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">Kichwa</label>
               <input required value={title} onChange={(e) => setTitle(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900"
-                placeholder="Bomba limepasuka" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" placeholder="Bomba limepasuka" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">Maelezo</label>
               <textarea value={description} onChange={(e) => setDescription(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900" rows={3} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Picha ya tatizo (si lazima)</label>
+              <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-700" />
             </div>
             <button disabled={loading} className="w-full bg-amber-600 text-white py-2.5 rounded-lg disabled:bg-amber-300">
               {loading ? 'Inahifadhi...' : 'Hifadhi'}
