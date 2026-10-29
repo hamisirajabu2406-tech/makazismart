@@ -33,10 +33,15 @@ function coversMonth(payment: {
   return (payment.payment_date || '').slice(0, 7) === monthKey
 }
 
-function smsLink(row: Row, label: string) {
-  const phone = (row.phone || '').replace(/\s/g, '')
-  const text = `Habari ${row.full_name}, ukumbusho: kodi ya chumba ${row.unit_number} (${row.property_name}) TZS ${Number(row.rent_amount).toLocaleString()} bado haijalipwa mwezi wa ${label}. Asante.`
-  return `sms:${phone}?body=${encodeURIComponent(text)}`
+function waNumber(phone: string) {
+  let n = phone.replace(/\D/g, '')
+  if (n.startsWith('0')) n = '255' + n.slice(1)
+  if (!n.startsWith('255')) n = '255' + n
+  return n
+}
+
+function reminderText(row: Row, label: string) {
+  return `Habari ${row.full_name}, ukumbusho: kodi ya chumba ${row.unit_number} (${row.property_name}) TZS ${Number(row.rent_amount).toLocaleString()} bado haijalipwa mwezi wa ${label}. Asante.`
 }
 
 export default function UnpaidPage() {
@@ -138,22 +143,36 @@ export default function UnpaidPage() {
         )}
 
         <div className="space-y-3">
-          {rows.map((t) => (
-            <div key={t.id} className="bg-white p-4 rounded-xl shadow">
-              <p className="font-semibold text-gray-900">{t.full_name}</p>
-              <p className="text-sm text-gray-600">{t.property_name} · Chumba {t.unit_number}</p>
-              <p className="text-sm text-gray-600">
-                {t.phone || 'Hakuna simu'} · TZS {Number(t.rent_amount).toLocaleString()}
-              </p>
-              {t.phone ? (
-                <a href={smsLink(t, label)} className="inline-block mt-3 text-sm bg-green-600 text-white px-3 py-1.5 rounded">
-                  Tuma ukumbusho SMS
-                </a>
-              ) : (
-                <p className="text-sm text-gray-400 mt-2">Weka simu ili kutuma SMS.</p>
-              )}
-            </div>
-          ))}
+          {rows.map((t) => {
+            const text = encodeURIComponent(reminderText(t, label))
+            return (
+              <div key={t.id} className="bg-white p-4 rounded-xl shadow">
+                <p className="font-semibold text-gray-900">{t.full_name}</p>
+                <p className="text-sm text-gray-600">{t.property_name} · Chumba {t.unit_number}</p>
+                <p className="text-sm text-gray-600">
+                  {t.phone || 'Hakuna simu'} · TZS {Number(t.rent_amount).toLocaleString()}
+                </p>
+                {t.phone ? (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <a
+                      href={`https://wa.me/${waNumber(t.phone)}?text=${text}`}
+                      className="text-sm bg-green-600 text-white px-3 py-1.5 rounded"
+                    >
+                      WhatsApp
+                    </a>
+                    <a
+                      href={`sms:${t.phone.replace(/\s/g, '')}?body=${text}`}
+                      className="text-sm border border-gray-400 text-gray-800 px-3 py-1.5 rounded"
+                    >
+                      SMS
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 mt-2">Weka simu ili kutuma ukumbusho.</p>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
