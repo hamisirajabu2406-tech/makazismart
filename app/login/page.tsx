@@ -72,6 +72,9 @@ export default function LoginPage() {
             {loading ? 'Inaingia...' : 'Ingia'}
           </button>
         </form>
+        <p className="mt-3 text-center text-sm">
+  <a href="/forgot-password" className="text-gray-600">Umesahau password?</a>
+</p>
         <p className="mt-4 text-center text-sm text-gray-600">
           <a href="/" className="text-gray-500">Mwanzo</a>
           {' · '}
