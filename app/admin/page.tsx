@@ -11,6 +11,17 @@ type Money = {
   landlords_waiting: number
 }
 
+type MarketRow = {
+  unit_id: string
+  unit_number: string
+  rent_amount: number
+  listed: boolean
+  photo_url: string | null
+  property_name: string
+  location: string | null
+  owner_name: string | null
+}
+
 type UserRow = {
   user_id: string
   full_name: string | null
@@ -63,6 +74,7 @@ function fixLabel(status: string | null) {
 export default function AdminPage() {
   const router = useRouter()
   const [money, setMoney] = useState<Money | null>(null)
+  const [market, setMarket] = useState<MarketRow[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
   const [properties, setProperties] = useState<PropertyRow[]>([])
   const [inquiries, setInquiries] = useState<InquiryRow[]>([])
@@ -90,12 +102,13 @@ export default function AdminPage() {
       }
 
       const moneyQ = await supabase.rpc('admin_month_money')
+      const marketQ = await supabase.rpc('admin_market')
       const usersQ = await supabase.rpc('admin_overview')
       const propsQ = await supabase.rpc('admin_properties')
       const inqQ = await supabase.rpc('admin_inquiries')
       const fixQ = await supabase.rpc('admin_maintenance')
 
-      const failed = moneyQ.error || usersQ.error || propsQ.error || inqQ.error || fixQ.error
+      const failed = moneyQ.error || marketQ.error || usersQ.error || propsQ.error || inqQ.error || fixQ.error
       if (failed) {
         setError(failed.message)
         setLoading(false)
@@ -103,6 +116,7 @@ export default function AdminPage() {
       }
 
       setMoney(moneyQ.data?.[0] || null)
+      setMarket(marketQ.data || [])
       setUsers(usersQ.data || [])
       setProperties(propsQ.data || [])
       setInquiries(inqQ.data || [])
@@ -114,6 +128,8 @@ export default function AdminPage() {
 
   const landlords = users.filter((r) => r.role !== 'tenant')
   const tenants = users.filter((r) => r.role === 'tenant')
+  const onMarket = market.filter((m) => m.listed).length
+  const hidden = market.filter((m) => !m.listed).length
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -145,6 +161,25 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
+
+            <h2 className="font-semibold text-gray-800 mb-2">
+              Soko ({onMarket} wazi, {hidden} vimefichwa)
+            </h2>
+            <div className="space-y-3 mb-8">
+              {market.map((m) => (
+                <div key={m.unit_id} className="bg-white p-4 rounded-xl shadow">
+                  <div className="flex justify-between gap-3">
+                    <p className="font-semibold text-gray-900">{m.property_name} · {m.unit_number}</p>
+                    <span className={m.listed ? 'text-emerald-700 text-sm' : 'text-gray-400 text-sm'}>
+                      {m.listed ? 'Sokoni' : 'Imefichwa'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">{m.location || '—'} · {m.owner_name || '—'}</p>
+                  <p className="text-sm text-gray-800">TZS {Number(m.rent_amount).toLocaleString()} / mwezi</p>
+                </div>
+              ))}
+              {market.length === 0 && <p className="text-gray-600">Hakuna chumba tupu.</p>}
+            </div>
 
             <h2 className="font-semibold text-gray-800 mb-2">Matengenezo ({fixes.length})</h2>
             <div className="space-y-3 mb-8">
