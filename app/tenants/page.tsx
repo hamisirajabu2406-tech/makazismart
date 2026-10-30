@@ -136,6 +136,9 @@ export default function TenantsPage() {
                 {t.phone || 'Hakuna simu'} · TZS {Number(t.rent_amount).toLocaleString()} / mwezi
               </p>
               {t.start_date && <p className="text-sm text-gray-500">Tangu {t.start_date}</p>}
+            <a href={`/tenants/${t.id}/edit`} className="inline-block mt-3 text-sm text-blue-600">
+            Hariri
+            </a>
             </div>
           ))}
         </div>

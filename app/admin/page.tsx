@@ -31,6 +31,8 @@ type UserRow = {
   email: string
   properties: number
   units: number
+  billing_status: string
+  days_used: number
 }
 
 type PropertyRow = {
@@ -74,6 +76,13 @@ function hit(query: string, parts: Array<string | null | undefined>) {
   const q = query.trim().toLowerCase()
   if (!q) return true
   return parts.join(' ').toLowerCase().includes(q)
+}
+
+function billLabel(u: UserRow) {
+  if (u.role === 'tenant') return '—'
+  if (u.billing_status === 'active' || u.role === 'admin') return 'Imewashwa'
+  if (u.days_used >= 30) return 'Imefungwa'
+  return `Jaribio ${Math.min(u.days_used, 30)}/30`
 }
 
 export default function AdminPage() {
@@ -133,6 +142,18 @@ export default function AdminPage() {
     load()
   }, [router])
 
+  const unlock = async (userId: string) => {
+    const { error: rpcError } = await supabase.rpc('admin_set_billing', {
+      p_user_id: userId,
+      p_status: 'active',
+    })
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+    setUsers((list) => list.map((u) => (u.user_id === userId ? { ...u, billing_status: 'active' } : u)))
+  }
+
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: 'soko', label: 'Soko', count: market.length },
     { id: 'matengenezo', label: 'Matengenezo', count: fixes.length },
@@ -145,7 +166,7 @@ export default function AdminPage() {
   const fixRows = fixes.filter((f) => hit(query, [f.title, f.property_name, f.unit_number, f.owner_name, fixLabel(f.status)]))
   const inquiryRows = inquiries.filter((i) => hit(query, [i.sender_name, i.sender_phone, i.property_name, i.owner_name, i.message]))
   const propertyRows = properties.filter((p) => hit(query, [p.property_name, p.location, p.owner_name, p.owner_email, p.property_type]))
-  const userRows = users.filter((u) => hit(query, [u.full_name, u.email, u.phone, u.role]))
+  const userRows = users.filter((u) => hit(query, [u.full_name, u.email, u.phone, u.role, billLabel(u)]))
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -315,8 +336,8 @@ export default function AdminPage() {
                       <th className="p-3 font-medium">Email</th>
                       <th className="p-3 font-medium">Simu</th>
                       <th className="p-3 font-medium">Aina</th>
-                      <th className="p-3 font-medium">Mali</th>
-                      <th className="p-3 font-medium">Vyumba</th>
+                      <th className="p-3 font-medium">Hali</th>
+                      <th className="p-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -326,8 +347,14 @@ export default function AdminPage() {
                         <td className="p-3">{u.email}</td>
                         <td className="p-3">{u.phone || '—'}</td>
                         <td className="p-3">{u.role === 'tenant' ? 'Mpangaji' : u.role === 'admin' ? 'Admin' : 'Mwenye nyumba'}</td>
-                        <td className="p-3">{u.properties}</td>
-                        <td className="p-3">{u.units}</td>
+                        <td className="p-3">{billLabel(u)}</td>
+                        <td className="p-3">
+                          {u.role !== 'tenant' && u.role !== 'admin' && u.billing_status !== 'active' && (
+                            <button onClick={() => unlock(u.user_id)} className="text-sm bg-emerald-700 text-white px-3 py-1 rounded">
+                              Washa
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
