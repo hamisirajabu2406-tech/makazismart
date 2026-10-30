@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+type Tab = 'soko' | 'matengenezo' | 'nia' | 'mali' | 'watu'
+
 type Money = {
   collected: number
   owed: number
@@ -16,7 +18,6 @@ type MarketRow = {
   unit_number: string
   rent_amount: number
   listed: boolean
-  photo_url: string | null
   property_name: string
   location: string | null
   owner_name: string | null
@@ -57,9 +58,7 @@ type InquiryRow = {
 type FixRow = {
   request_id: string
   title: string
-  description: string | null
   status: string | null
-  photo_url: string | null
   property_name: string
   unit_number: string
   owner_name: string | null
@@ -71,8 +70,16 @@ function fixLabel(status: string | null) {
   return 'Imepokelewa'
 }
 
+function hit(query: string, parts: Array<string | null | undefined>) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return parts.join(' ').toLowerCase().includes(q)
+}
+
 export default function AdminPage() {
   const router = useRouter()
+  const [tab, setTab] = useState<Tab>('soko')
+  const [query, setQuery] = useState('')
   const [money, setMoney] = useState<Money | null>(null)
   const [market, setMarket] = useState<MarketRow[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
@@ -126,129 +133,214 @@ export default function AdminPage() {
     load()
   }, [router])
 
-  const landlords = users.filter((r) => r.role !== 'tenant')
-  const tenants = users.filter((r) => r.role === 'tenant')
-  const onMarket = market.filter((m) => m.listed).length
-  const hidden = market.filter((m) => !m.listed).length
+  const tabs: { id: Tab; label: string; count: number }[] = [
+    { id: 'soko', label: 'Soko', count: market.length },
+    { id: 'matengenezo', label: 'Matengenezo', count: fixes.length },
+    { id: 'nia', label: 'Nia', count: inquiries.length },
+    { id: 'mali', label: 'Mali', count: properties.length },
+    { id: 'watu', label: 'Watu', count: users.length },
+  ]
+
+  const marketRows = market.filter((m) => hit(query, [m.property_name, m.unit_number, m.location, m.owner_name]))
+  const fixRows = fixes.filter((f) => hit(query, [f.title, f.property_name, f.unit_number, f.owner_name, fixLabel(f.status)]))
+  const inquiryRows = inquiries.filter((i) => hit(query, [i.sender_name, i.sender_phone, i.property_name, i.owner_name, i.message]))
+  const propertyRows = properties.filter((p) => hit(query, [p.property_name, p.location, p.owner_name, p.owner_email, p.property_type]))
+  const userRows = users.filter((u) => hit(query, [u.full_name, u.email, u.phone, u.role]))
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="min-h-screen bg-slate-100">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <a href="/dashboard" className="text-sm text-blue-600">← Dashboard</a>
-        <h1 className="text-2xl font-bold text-gray-900 mt-4 mb-6">Admin</h1>
-        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
-        {loading && <p className="text-gray-600">Inapakia...</p>}
+        <h1 className="text-2xl font-bold text-slate-900 mt-3">Admin</h1>
+        {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm mt-4">{error}</div>}
+        {loading && <p className="text-slate-600 mt-6">Inapakia...</p>}
 
         {!loading && (
           <>
             {money && (
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                <div className="bg-white p-4 rounded-xl shadow">
-                  <p className="text-sm text-gray-500">Imekusanywa mwezi huu</p>
-                  <p className="text-xl font-bold text-green-600">TZS {Number(money.collected).toLocaleString()}</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <p className="text-xs text-slate-500">Imekusanywa</p>
+                  <p className="text-lg font-semibold text-emerald-700">TZS {Number(money.collected).toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow">
-                  <p className="text-sm text-gray-500">Inadaiwa mwezi huu</p>
-                  <p className="text-xl font-bold text-red-500">TZS {Number(money.owed).toLocaleString()}</p>
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <p className="text-xs text-slate-500">Inadaiwa</p>
+                  <p className="text-lg font-semibold text-red-600">TZS {Number(money.owed).toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow">
-                  <p className="text-sm text-gray-500">Wapangaji hawajalipa</p>
-                  <p className="text-xl font-bold text-gray-900">{money.unpaid_tenants}</p>
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <p className="text-xs text-slate-500">Hawajalipa</p>
+                  <p className="text-lg font-semibold">{money.unpaid_tenants}</p>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow">
-                  <p className="text-sm text-gray-500">Wenye nyumba wenye madai</p>
-                  <p className="text-xl font-bold text-gray-900">{money.landlords_waiting}</p>
+                <div className="bg-white rounded-xl p-4 shadow-sm">
+                  <p className="text-xs text-slate-500">Wenye madai</p>
+                  <p className="text-lg font-semibold">{money.landlords_waiting}</p>
                 </div>
               </div>
             )}
 
-            <h2 className="font-semibold text-gray-800 mb-2">
-              Soko ({onMarket} wazi, {hidden} vimefichwa)
-            </h2>
-            <div className="space-y-3 mb-8">
-              {market.map((m) => (
-                <div key={m.unit_id} className="bg-white p-4 rounded-xl shadow">
-                  <div className="flex justify-between gap-3">
-                    <p className="font-semibold text-gray-900">{m.property_name} · {m.unit_number}</p>
-                    <span className={m.listed ? 'text-emerald-700 text-sm' : 'text-gray-400 text-sm'}>
-                      {m.listed ? 'Sokoni' : 'Imefichwa'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{m.location || '—'} · {m.owner_name || '—'}</p>
-                  <p className="text-sm text-gray-800">TZS {Number(m.rent_amount).toLocaleString()} / mwezi</p>
-                </div>
-              ))}
-              {market.length === 0 && <p className="text-gray-600">Hakuna chumba tupu.</p>}
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex gap-2 overflow-x-auto">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTab(t.id)}
+                    className={`shrink-0 px-3 py-2 rounded-lg text-sm ${
+                      tab === t.id ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border'
+                    }`}
+                  >
+                    {t.label} {t.count}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Tafuta jina, simu, mali..."
+                className="w-full sm:w-64 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white"
+              />
             </div>
 
-            <h2 className="font-semibold text-gray-800 mb-2">Matengenezo ({fixes.length})</h2>
-            <div className="space-y-3 mb-8">
-              {fixes.map((f) => (
-                <div key={f.request_id} className="bg-white p-4 rounded-xl shadow">
-                  <div className="flex justify-between gap-3">
-                    <p className="font-semibold text-gray-900">{f.title}</p>
-                    <span className={f.status === 'done' ? 'text-green-600 text-sm' : 'text-amber-600 text-sm'}>
-                      {fixLabel(f.status)}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{f.property_name} · Chumba {f.unit_number}</p>
-                  <p className="text-sm text-gray-600">Mwenye nyumba: {f.owner_name || '—'}</p>
-                  {f.description && <p className="text-sm text-gray-800 mt-1">{f.description}</p>}
-                  {f.photo_url && <img src={f.photo_url} alt="" className="mt-3 h-36 w-full object-cover rounded-lg" />}
-                </div>
-              ))}
-              {fixes.length === 0 && <p className="text-gray-600">Hakuna maombi.</p>}
-            </div>
+            <div className="mt-4 bg-white rounded-xl shadow-sm overflow-x-auto">
+              {tab === 'soko' && (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="p-3 font-medium">Mali</th>
+                      <th className="p-3 font-medium">Chumba</th>
+                      <th className="p-3 font-medium">Eneo</th>
+                      <th className="p-3 font-medium">Mwenye</th>
+                      <th className="p-3 font-medium">Kodi</th>
+                      <th className="p-3 font-medium">Hali</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketRows.map((m) => (
+                      <tr key={m.unit_id} className="border-b last:border-0">
+                        <td className="p-3">{m.property_name}</td>
+                        <td className="p-3">{m.unit_number}</td>
+                        <td className="p-3">{m.location || '—'}</td>
+                        <td className="p-3">{m.owner_name || '—'}</td>
+                        <td className="p-3">{Number(m.rent_amount).toLocaleString()}</td>
+                        <td className={`p-3 ${m.listed ? 'text-emerald-700' : 'text-slate-400'}`}>
+                          {m.listed ? 'Sokoni' : 'Imefichwa'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-            <h2 className="font-semibold text-gray-800 mb-2">Nia za kupanga ({inquiries.length})</h2>
-            <div className="space-y-3 mb-8">
-              {inquiries.map((i) => (
-                <div key={i.inquiry_id} className="bg-white p-4 rounded-xl shadow">
-                  <div className="flex justify-between gap-3">
-                    <p className="font-semibold text-gray-900">{i.sender_name} · {i.sender_phone}</p>
-                    <span className="text-sm text-sky-600">{i.status === 'contacted' ? 'Nimewasiliana' : 'Mpya'}</span>
-                  </div>
-                  <p className="text-sm text-gray-600">{i.property_name} · Chumba {i.unit_number}</p>
-                  <p className="text-sm text-gray-600">Mwenye nyumba: {i.owner_name || '—'}</p>
-                  {i.message && <p className="text-sm text-gray-800 mt-1">{i.message}</p>}
-                </div>
-              ))}
-              {inquiries.length === 0 && <p className="text-gray-600">Bado hakuna nia.</p>}
-            </div>
+              {tab === 'matengenezo' && (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="p-3 font-medium">Ombi</th>
+                      <th className="p-3 font-medium">Mali</th>
+                      <th className="p-3 font-medium">Chumba</th>
+                      <th className="p-3 font-medium">Mwenye</th>
+                      <th className="p-3 font-medium">Hali</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fixRows.map((f) => (
+                      <tr key={f.request_id} className="border-b last:border-0">
+                        <td className="p-3">{f.title}</td>
+                        <td className="p-3">{f.property_name}</td>
+                        <td className="p-3">{f.unit_number}</td>
+                        <td className="p-3">{f.owner_name || '—'}</td>
+                        <td className="p-3">{fixLabel(f.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-            <h2 className="font-semibold text-gray-800 mb-2">Mali zote ({properties.length})</h2>
-            <div className="space-y-3 mb-8">
-              {properties.map((p) => (
-                <div key={p.property_id} className="bg-white p-4 rounded-xl shadow">
-                  <p className="font-semibold text-gray-900">{p.property_name}</p>
-                  <p className="text-sm text-gray-600">{p.property_type} · {p.location || '—'}</p>
-                  <p className="text-sm text-gray-600">{p.owner_name || '—'} · {p.owner_email || '—'}</p>
-                  <p className="text-sm text-gray-600">Vyumba {p.units} · Tupu {p.vacant}</p>
-                </div>
-              ))}
-            </div>
+              {tab === 'nia' && (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="p-3 font-medium">Mtu</th>
+                      <th className="p-3 font-medium">Simu</th>
+                      <th className="p-3 font-medium">Mali</th>
+                      <th className="p-3 font-medium">Mwenye</th>
+                      <th className="p-3 font-medium">Hali</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inquiryRows.map((i) => (
+                      <tr key={i.inquiry_id} className="border-b last:border-0">
+                        <td className="p-3">{i.sender_name}</td>
+                        <td className="p-3">{i.sender_phone}</td>
+                        <td className="p-3">{i.property_name} · {i.unit_number}</td>
+                        <td className="p-3">{i.owner_name || '—'}</td>
+                        <td className="p-3">{i.status === 'contacted' ? 'Nimewasiliana' : 'Mpya'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-            <h2 className="font-semibold text-gray-800 mb-2">Wenye nyumba ({landlords.length})</h2>
-            <div className="space-y-3 mb-8">
-              {landlords.map((r) => (
-                <div key={r.user_id} className="bg-white p-4 rounded-xl shadow">
-                  <p className="font-semibold text-gray-900">{r.full_name || '—'} · {r.role}</p>
-                  <p className="text-sm text-gray-600">{r.email}</p>
-                  <p className="text-sm text-gray-600">{r.phone || 'Hakuna simu'} · Mali {r.properties} · Vyumba {r.units}</p>
-                </div>
-              ))}
-            </div>
+              {tab === 'mali' && (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="p-3 font-medium">Mali</th>
+                      <th className="p-3 font-medium">Aina</th>
+                      <th className="p-3 font-medium">Eneo</th>
+                      <th className="p-3 font-medium">Mwenye</th>
+                      <th className="p-3 font-medium">Vyumba</th>
+                      <th className="p-3 font-medium">Tupu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {propertyRows.map((p) => (
+                      <tr key={p.property_id} className="border-b last:border-0">
+                        <td className="p-3">{p.property_name}</td>
+                        <td className="p-3">{p.property_type}</td>
+                        <td className="p-3">{p.location || '—'}</td>
+                        <td className="p-3">{p.owner_name || p.owner_email || '—'}</td>
+                        <td className="p-3">{p.units}</td>
+                        <td className="p-3">{p.vacant}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
 
-            <h2 className="font-semibold text-gray-800 mb-2">Wapangaji ({tenants.length})</h2>
-            <div className="space-y-3">
-              {tenants.map((r) => (
-                <div key={r.user_id} className="bg-white p-4 rounded-xl shadow">
-                  <p className="font-semibold text-gray-900">{r.full_name || '—'}</p>
-                  <p className="text-sm text-gray-600">{r.email}</p>
-                  <p className="text-sm text-gray-600">{r.phone || 'Hakuna simu'}</p>
-                </div>
-              ))}
-              {tenants.length === 0 && <p className="text-gray-600">Hakuna mpangaji aliyejisajili.</p>}
+              {tab === 'watu' && (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="p-3 font-medium">Jina</th>
+                      <th className="p-3 font-medium">Email</th>
+                      <th className="p-3 font-medium">Simu</th>
+                      <th className="p-3 font-medium">Aina</th>
+                      <th className="p-3 font-medium">Mali</th>
+                      <th className="p-3 font-medium">Vyumba</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userRows.map((u) => (
+                      <tr key={u.user_id} className="border-b last:border-0">
+                        <td className="p-3">{u.full_name || '—'}</td>
+                        <td className="p-3">{u.email}</td>
+                        <td className="p-3">{u.phone || '—'}</td>
+                        <td className="p-3">{u.role === 'tenant' ? 'Mpangaji' : u.role === 'admin' ? 'Admin' : 'Mwenye nyumba'}</td>
+                        <td className="p-3">{u.properties}</td>
+                        <td className="p-3">{u.units}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {((tab === 'soko' && marketRows.length === 0) ||
+                (tab === 'matengenezo' && fixRows.length === 0) ||
+                (tab === 'nia' && inquiryRows.length === 0) ||
+                (tab === 'mali' && propertyRows.length === 0) ||
+                (tab === 'watu' && userRows.length === 0)) && (
+                <p className="p-4 text-sm text-slate-500">Hakuna kinachoendana na utafutaji.</p>
+              )}
             </div>
           </>
         )}
