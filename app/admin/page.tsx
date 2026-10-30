@@ -41,7 +41,23 @@ type InquiryRow = {
   property_name: string
   unit_number: string
   owner_name: string | null
-  created_at: string
+}
+
+type FixRow = {
+  request_id: string
+  title: string
+  description: string | null
+  status: string | null
+  photo_url: string | null
+  property_name: string
+  unit_number: string
+  owner_name: string | null
+}
+
+function fixLabel(status: string | null) {
+  if (status === 'done') return 'Imekamilika'
+  if (status === 'assigned') return 'Fundi amepangwa'
+  return 'Imepokelewa'
 }
 
 export default function AdminPage() {
@@ -50,6 +66,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [properties, setProperties] = useState<PropertyRow[]>([])
   const [inquiries, setInquiries] = useState<InquiryRow[]>([])
+  const [fixes, setFixes] = useState<FixRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -72,22 +89,24 @@ export default function AdminPage() {
         return
       }
 
-      const { data: moneyRows, error: moneyError } = await supabase.rpc('admin_month_money')
-      const { data: userRows, error: userError } = await supabase.rpc('admin_overview')
-      const { data: propertyRows, error: propertyError } = await supabase.rpc('admin_properties')
-      const { data: inquiryRows, error: inquiryError } = await supabase.rpc('admin_inquiries')
+      const moneyQ = await supabase.rpc('admin_month_money')
+      const usersQ = await supabase.rpc('admin_overview')
+      const propsQ = await supabase.rpc('admin_properties')
+      const inqQ = await supabase.rpc('admin_inquiries')
+      const fixQ = await supabase.rpc('admin_maintenance')
 
-      const failed = moneyError || userError || propertyError || inquiryError
+      const failed = moneyQ.error || usersQ.error || propsQ.error || inqQ.error || fixQ.error
       if (failed) {
         setError(failed.message)
         setLoading(false)
         return
       }
 
-      setMoney(moneyRows?.[0] || null)
-      setUsers(userRows || [])
-      setProperties(propertyRows || [])
-      setInquiries(inquiryRows || [])
+      setMoney(moneyQ.data?.[0] || null)
+      setUsers(usersQ.data || [])
+      setProperties(propsQ.data || [])
+      setInquiries(inqQ.data || [])
+      setFixes(fixQ.data || [])
       setLoading(false)
     }
     load()
@@ -127,6 +146,25 @@ export default function AdminPage() {
               </div>
             )}
 
+            <h2 className="font-semibold text-gray-800 mb-2">Matengenezo ({fixes.length})</h2>
+            <div className="space-y-3 mb-8">
+              {fixes.map((f) => (
+                <div key={f.request_id} className="bg-white p-4 rounded-xl shadow">
+                  <div className="flex justify-between gap-3">
+                    <p className="font-semibold text-gray-900">{f.title}</p>
+                    <span className={f.status === 'done' ? 'text-green-600 text-sm' : 'text-amber-600 text-sm'}>
+                      {fixLabel(f.status)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">{f.property_name} · Chumba {f.unit_number}</p>
+                  <p className="text-sm text-gray-600">Mwenye nyumba: {f.owner_name || '—'}</p>
+                  {f.description && <p className="text-sm text-gray-800 mt-1">{f.description}</p>}
+                  {f.photo_url && <img src={f.photo_url} alt="" className="mt-3 h-36 w-full object-cover rounded-lg" />}
+                </div>
+              ))}
+              {fixes.length === 0 && <p className="text-gray-600">Hakuna maombi.</p>}
+            </div>
+
             <h2 className="font-semibold text-gray-800 mb-2">Nia za kupanga ({inquiries.length})</h2>
             <div className="space-y-3 mb-8">
               {inquiries.map((i) => (
@@ -153,7 +191,6 @@ export default function AdminPage() {
                   <p className="text-sm text-gray-600">Vyumba {p.units} · Tupu {p.vacant}</p>
                 </div>
               ))}
-              {properties.length === 0 && <p className="text-gray-600">Hakuna mali.</p>}
             </div>
 
             <h2 className="font-semibold text-gray-800 mb-2">Wenye nyumba ({landlords.length})</h2>
@@ -162,9 +199,7 @@ export default function AdminPage() {
                 <div key={r.user_id} className="bg-white p-4 rounded-xl shadow">
                   <p className="font-semibold text-gray-900">{r.full_name || '—'} · {r.role}</p>
                   <p className="text-sm text-gray-600">{r.email}</p>
-                  <p className="text-sm text-gray-600">
-                    {r.phone || 'Hakuna simu'} · Mali {r.properties} · Vyumba {r.units}
-                  </p>
+                  <p className="text-sm text-gray-600">{r.phone || 'Hakuna simu'} · Mali {r.properties} · Vyumba {r.units}</p>
                 </div>
               ))}
             </div>
